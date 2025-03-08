@@ -34,6 +34,7 @@ const fallbackIdeas = [
 let openai: OpenAI | null = null;
 try {
   if (process.env.OPENAI_API_KEY) {
+    console.log("OpenAI API key found, initializing client");
     openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
@@ -46,7 +47,13 @@ try {
 
 // Add export for GET method to handle preflight requests
 export async function GET() {
-  return NextResponse.json({ message: "API is working. Use POST to generate a startup idea." });
+  // Check if OpenAI is initialized
+  const apiStatus = openai ? "active" : "inactive";
+  return NextResponse.json({ 
+    message: "API is working. Use POST to generate a startup idea.",
+    openai_status: apiStatus,
+    env_vars_set: !!process.env.OPENAI_API_KEY
+  });
 }
 
 export async function POST(request: Request) {
@@ -56,10 +63,15 @@ export async function POST(request: Request) {
   if (!openai) {
     console.log("Using fallback idea due to missing OpenAI API key");
     const randomIndex = Math.floor(Math.random() * fallbackIdeas.length);
-    return NextResponse.json(fallbackIdeas[randomIndex]);
+    return NextResponse.json({
+      ...fallbackIdeas[randomIndex],
+      _source: "fallback",
+      _reason: "OpenAI API key not configured"
+    });
   }
   
   try {
+    console.log("Calling OpenAI API...");
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -102,17 +114,28 @@ export async function POST(request: Request) {
     if (!content) {
       console.error("No content in OpenAI response");
       const randomIndex = Math.floor(Math.random() * fallbackIdeas.length);
-      return NextResponse.json(fallbackIdeas[randomIndex]);
+      return NextResponse.json({
+        ...fallbackIdeas[randomIndex],
+        _source: "fallback",
+        _reason: "Empty response from OpenAI"
+      });
     }
 
     const parsedContent = JSON.parse(content);
     console.log("Generated startup idea:", parsedContent);
     
-    return NextResponse.json(parsedContent);
+    return NextResponse.json({
+      ...parsedContent,
+      _source: "openai"
+    });
   } catch (error) {
     console.error("Error generating startup idea:", error);
     // Return a fallback idea if the API call fails
     const randomIndex = Math.floor(Math.random() * fallbackIdeas.length);
-    return NextResponse.json(fallbackIdeas[randomIndex]);
+    return NextResponse.json({
+      ...fallbackIdeas[randomIndex],
+      _source: "fallback",
+      _reason: error instanceof Error ? error.message : "Unknown error"
+    });
   }
 } 

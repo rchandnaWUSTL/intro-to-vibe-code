@@ -2,6 +2,8 @@ export interface StartupIdea {
   name: string;
   tagline: string;
   tweet: string;
+  _source?: 'openai' | 'fallback';
+  _reason?: string;
 }
 
 export async function generateStartupIdea(): Promise<StartupIdea> {

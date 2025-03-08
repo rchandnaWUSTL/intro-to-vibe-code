@@ -165,6 +165,12 @@ export default function ClientPage() {
         throw new Error("Invalid response format from API");
       }
       
+      // Check if we're using a fallback idea
+      if (idea._source === 'fallback') {
+        console.warn(`Using fallback idea. Reason: ${idea._reason || 'Unknown'}`);
+        setError(`Note: Using a pre-generated idea. ${idea._reason || ''}`);
+      }
+      
       // Sanitize the data to prevent XSS
       const sanitizedIdea = sanitizeData(idea);
       
@@ -191,7 +197,11 @@ export default function ClientPage() {
       // Use a fallback idea if the API call fails
       if (fallbackIdeas.length > 0) {
         const randomIndex = Math.floor(Math.random() * fallbackIdeas.length);
-        const fallbackIdea = sanitizeData(fallbackIdeas[randomIndex]);
+        const fallbackIdea = sanitizeData({
+          ...fallbackIdeas[randomIndex],
+          _source: 'fallback',
+          _reason: 'Client-side error'
+        });
         
         // Decode HTML entities in the fallback idea
         if (fallbackIdea.tagline) {
